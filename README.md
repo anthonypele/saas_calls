@@ -20,9 +20,11 @@ Not included:
 ## Prerequisites
 
 - Node.js 20 or newer
-- PostgreSQL 14 or newer
+- PostgreSQL 14 or newer only if you want to run the backend with a real local database
 
 ## 1. Create the database
+
+Skip this section for frontend-only mock mode.
 
 Open `psql` and run:
 
@@ -31,6 +33,8 @@ CREATE DATABASE saas_calls;
 ```
 
 ## 2. Configure environment variables
+
+Skip this section for frontend-only mock mode.
 
 The API reads `DATABASE_URL` from `.env` through `dotenv`. When `DATABASE_URL` is missing or blank, `GET /api/calls` returns 10 local mock calls instead of connecting to PostgreSQL.
 
@@ -86,6 +90,14 @@ psql "postgres://postgres:postgres@localhost:5432/saas_calls" -f server/seed.sql
 
 ## 5. Start the app
 
+For frontend-only mock mode:
+
+```bash
+npm run client
+```
+
+To run the frontend and local Express API together:
+
 ```bash
 npm run dev
 ```
@@ -98,6 +110,35 @@ http://localhost:5173
 
 The frontend runs on port `5173`. The API runs on port `3001`.
 
+## Frontend-only Vercel deployment
+
+This project can be deployed to Vercel as a static Vite frontend without running the Express API or PostgreSQL.
+
+For a frontend-only deployment, leave `VITE_API_URL` unset. The frontend uses local mock call data from `src/mockCalls.js`, and newly added calls are stored in the browser with `localStorage`.
+
+Recommended Vercel settings:
+
+- Framework Preset: `Vite`
+- Build Command: `npm run build`
+- Output Directory: `dist`
+- Install Command: `npm install`
+- Environment Variables: none required for mock mode
+
+The included `vercel.json` rewrites all routes to `index.html` so direct visits to routes like `/calls` and `/calls/1` work after deployment.
+
+To verify locally before deploying:
+
+```bash
+npm install
+npm run build
+```
+
+Optional: if you later deploy a real API separately, set `VITE_API_URL` to that API origin, for example:
+
+```env
+VITE_API_URL=https://api.example.com
+```
+
 ## Pages
 
 - `/calls` - calls table
@@ -107,3 +148,7 @@ The frontend runs on port `5173`. The API runs on port `3001`.
 ## Notes
 
 This MVP does not require authentication. The `/health` endpoint stays available at `http://localhost:3001/health`.
+
+## Comment
+
+Trying to see my vercel branch on vercel    
