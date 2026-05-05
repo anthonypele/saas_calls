@@ -7,6 +7,7 @@
     "dev": "concurrently \"npm run server\" \"npm run client\"",
     "client": "vite",
     "build": "vite build",
+    "start": "node server/index.js",
     "server": "nodemon server/index.js",
     "db:setup": "psql \"$DATABASE_URL\" -f server/schema.sql",
     "db:seed": "psql \"$DATABASE_URL\" -f server/seed.sql"
