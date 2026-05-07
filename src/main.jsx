@@ -2,9 +2,7 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import App from "./App.jsx";
-import CallsPage from "./pages/CallsPage.jsx";
-import AddCallPage from "./pages/AddCallPage.jsx";
-import CallDetailPage from "./pages/CallDetailPage.jsx";
+import ConversacionesPage from "./pages/ConversacionesPage.jsx";
 import "./styles.css";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
@@ -12,11 +10,9 @@ ReactDOM.createRoot(document.getElementById("root")).render(
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<App />}>
-          <Route index element={<Navigate to="/calls" replace />} />
-          <Route path="calls" element={<CallsPage />} />
-          <Route path="calls/new" element={<AddCallPage />} />
-          <Route path="calls/:id" element={<CallDetailPage />} />
-          <Route path="*" element={<Navigate to="/calls" replace />} />
+          <Route index element={<Navigate to="/conversaciones" replace />} />
+          <Route path="conversaciones" element={<ConversacionesPage />} />
+          <Route path="*" element={<Navigate to="/conversaciones" replace />} />
         </Route>
       </Routes>
     </BrowserRouter>

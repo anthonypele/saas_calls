@@ -1,8 +1,7 @@
 import cors from "cors";
 import dotenv from "dotenv";
 import express from "express";
-import { isDatabaseConfigured, query, verifyDatabaseConnection } from "./db.js";
-import { mockCalls } from "./mockCalls.js";
+import { query, verifyDatabaseConnection } from "./db.js";
 
 dotenv.config();
 
@@ -16,10 +15,10 @@ app.use(
 );
 app.use(express.json());
 
-function formatCall(row) {
+function formatConversation(row) {
   return {
     ...row,
-    duration_minutes: Math.round(row.duration_seconds / 60),
+    duracion_minutos: Math.round(Number(row.duracion_segundos || 0) / 60),
   };
 }
 
@@ -27,11 +26,12 @@ function handleDatabaseError(res, error) {
   console.error("[database] Request failed", {
     message: error.message,
     code: error.code,
-    hint: "Verify DATABASE_URL, database availability, and that server/schema.sql has been applied.",
+    hint: "Verify DATABASE_URL, database availability, and that the conversations table exists.",
   });
 
   res.status(503).json({
-    error: "Database is unavailable. Check server logs for PostgreSQL connection details.",
+    error: "No se pudieron cargar conversaciones desde PostgreSQL.",
+    details: error.message,
   });
 }
 
@@ -39,92 +39,26 @@ app.get("/health", (req, res) => {
   res.json({ status: "ok" });
 });
 
-app.get("/api/calls", async (req, res) => {
-  if (!isDatabaseConfigured) {
-    return res.json({ calls: mockCalls });
-  }
-
+app.get("/api/conversations", async (req, res) => {
   try {
-    const result = await query("SELECT * FROM calls ORDER BY call_date DESC");
-    res.json({ calls: result.rows.map(formatCall) });
-  } catch (error) {
-    handleDatabaseError(res, error);
-  }
-});
+    const result = await query(`
+      SELECT
+        fecha,
+        duracion_segundos,
+        telefono,
+        agente,
+        deudor,
+        sentimiento,
+        puntaje,
+        interes_pago,
+        falta_recursos,
+        actitud_deudor,
+        actitud_agente
+      FROM conversations
+      ORDER BY fecha DESC
+    `);
 
-app.post("/api/calls", async (req, res) => {
-  if (!isDatabaseConfigured) {
-    return handleDatabaseError(res, new Error("Missing DATABASE_URL"));
-  }
-
-  const {
-    customer_name,
-    phone_number,
-    call_date,
-    duration_seconds,
-    sentiment,
-    status,
-    summary,
-    next_step,
-  } = req.body;
-
-  if (!customer_name || !phone_number || !call_date || !summary || !next_step) {
-    return res.status(400).json({ error: "Please fill in all required fields" });
-  }
-
-  try {
-    const result = await query(
-      `
-        INSERT INTO calls (
-          customer_name,
-          phone_number,
-          call_date,
-          duration_seconds,
-          sentiment,
-          status,
-          summary,
-          next_step
-        )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-        RETURNING *
-      `,
-      [
-        customer_name,
-        phone_number,
-        call_date,
-        Number(duration_seconds || 0),
-        sentiment || "Neutral",
-        status || "New",
-        summary,
-        next_step,
-      ]
-    );
-
-    res.status(201).json({ call: formatCall(result.rows[0]) });
-  } catch (error) {
-    handleDatabaseError(res, error);
-  }
-});
-
-app.get("/api/calls/:id", async (req, res) => {
-  if (!isDatabaseConfigured) {
-    const call = mockCalls.find((item) => item.id === Number(req.params.id));
-
-    if (!call) {
-      return res.status(404).json({ error: "Call not found" });
-    }
-
-    return res.json({ call });
-  }
-
-  try {
-    const result = await query("SELECT * FROM calls WHERE id = $1", [req.params.id]);
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: "Call not found" });
-    }
-
-    res.json({ call: formatCall(result.rows[0]) });
+    res.json({ conversations: result.rows.map(formatConversation) });
   } catch (error) {
     handleDatabaseError(res, error);
   }

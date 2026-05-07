@@ -1,196 +1,76 @@
-# AI Call Analytics MVP
+# Conversaciones MVP
 
-A beginner-friendly MVP for viewing and adding call analytics records.
+MVP para ver conversaciones desde PostgreSQL/Supabase con frontend en Vercel y backend Express compatible con Cloud Run.
 
-Included:
+## Funcionalidad
 
-- React frontend
-- Express API
-- PostgreSQL database
-- Seed data with 10 fake calls
-- Local mock data when the database is not configured
+- Pagina `/conversaciones` con tabla en estilo oscuro.
+- Backend `GET /api/conversations`.
+- Lectura directa de la tabla PostgreSQL/Supabase `conversations`.
+- Estados de carga, tabla vacia y error claro.
+- Sin auth, IA, carga de audio ni datos mock para conversaciones.
 
-Not included:
+## Columnas esperadas
 
-- AI integrations
-- Audio upload
-- Billing
-- Authentication
+| Base de datos | Frontend |
+| --- | --- |
+| `fecha` | Fecha |
+| `duracion_segundos` | Duracion |
+| `telefono` | Telefono |
+| `agente` | Agente |
+| `deudor` | Deudor |
+| `sentimiento` | Sentimiento |
+| `puntaje` | Puntaje |
+| `interes_pago` | Interes en Pago |
+| `falta_recursos` | Falta de recursos |
+| `actitud_deudor` | Actitud del Deudor |
+| `actitud_agente` | Actitud del Agente |
 
-## Prerequisites
+## Variables de entorno
 
-- Node.js 20 or newer
-- PostgreSQL 14 or newer only if you want to run the backend with a real local database
-
-## 1. Create the database
-
-Skip this section for frontend-only mock mode.
-
-Open `psql` and run:
-
-```sql
-CREATE DATABASE saas_calls;
-```
-
-## 2. Configure environment variables
-
-Skip this section for frontend-only mock mode.
-
-The API reads `DATABASE_URL` from `.env` through `dotenv`. When `DATABASE_URL` is missing or blank, `GET /api/calls` returns 10 local mock calls instead of connecting to PostgreSQL.
-
-To use PostgreSQL, copy the example file:
+Backend:
 
 ```bash
-cp .env.example .env
-```
-
-Update `.env` with your local PostgreSQL URL:
-
-```env
-DATABASE_URL=postgres://postgres:postgres@localhost:5432/saas_calls
+DATABASE_URL=postgres://USER:PASSWORD@HOST:5432/DATABASE
 CLIENT_URL=http://localhost:5173
+PORT=3001
 ```
 
-Adjust the username, password, host, port, or database name if your local PostgreSQL install uses different values.
+Frontend:
 
-## 3. Install dependencies
+```bash
+VITE_API_URL=http://localhost:3001
+```
+
+En Vercel, `VITE_API_URL` debe apuntar al servicio de Cloud Run. En Cloud Run, `DATABASE_URL` debe apuntar a PostgreSQL/Supabase.
+
+## Desarrollo local
 
 ```bash
 npm install
-```
-
-## 4. Create tables and seed fake calls
-
-Skip this step if you want to use the local sample calls only.
-
-`npm run db:setup` and `npm run db:seed` expect `DATABASE_URL` to be available in your shell. If you only added it to `.env`, load or set the value first.
-
-On macOS/Linux:
-
-```bash
-export DATABASE_URL=postgres://postgres:postgres@localhost:5432/saas_calls
-npm run db:setup
-npm run db:seed
-```
-
-On Windows PowerShell:
-
-```powershell
-$env:DATABASE_URL = "postgres://postgres:postgres@localhost:5432/saas_calls"
-npm run db:setup
-npm run db:seed
-```
-
-You can also run `psql` directly:
-
-```powershell
-psql "postgres://postgres:postgres@localhost:5432/saas_calls" -f server/schema.sql
-psql "postgres://postgres:postgres@localhost:5432/saas_calls" -f server/seed.sql
-```
-
-## 5. Start the app
-
-For frontend-only mock mode:
-
-```bash
-npm run client
-```
-
-To run the frontend and local Express API together:
-
-```bash
 npm run dev
 ```
 
-Open:
+La aplicacion queda disponible en `http://localhost:5173/conversaciones`.
 
-```text
-http://localhost:5173
-```
+## Base de datos
 
-The frontend runs on port `5173`. The API runs on port `3001`.
-
-## Frontend-only Vercel deployment
-
-This project can be deployed to Vercel as a static Vite frontend without running the Express API or PostgreSQL.
-
-For a frontend-only deployment, leave `VITE_API_URL` unset. The frontend uses local mock call data from `src/mockCalls.js`, and newly added calls are stored in the browser with `localStorage`.
-
-Recommended Vercel settings:
-
-- Framework Preset: `Vite`
-- Build Command: `npm run build`
-- Output Directory: `dist`
-- Install Command: `npm install`
-- Environment Variables: none required for mock mode
-
-The included `vercel.json` rewrites all routes to `index.html` so direct visits to routes like `/calls` and `/calls/1` work after deployment.
-
-To verify locally before deploying:
+Crear tabla:
 
 ```bash
-npm install
+npm run db:setup
+```
+
+Insertar datos de ejemplo en la base de datos:
+
+```bash
+npm run db:seed
+```
+
+## Verificacion
+
+```bash
 npm run build
+curl http://localhost:3001/health
+curl http://localhost:3001/api/conversations
 ```
-
-Optional: if you later deploy a real API separately, set `VITE_API_URL` to that API origin, for example:
-
-```env
-VITE_API_URL=https://api.example.com
-```
-
-## Express API deployment to Google Cloud Run
-
-Cloud Run runs the Express backend with `npm start`. The server listens on `process.env.PORT`, with a local fallback of `3001`.
-
-Required runtime environment variables:
-
-```env
-DATABASE_URL=postgres://USER:PASSWORD@HOST:5432/DATABASE
-CLIENT_URL=https://your-frontend.example.com
-```
-
-Do not commit real credentials. Store the production `DATABASE_URL` in Secret Manager:
-
-```bash
-gcloud secrets create saas-calls-database-url --replication-policy=automatic
-printf '%s' 'postgres://USER:PASSWORD@HOST:5432/DATABASE' | gcloud secrets versions add saas-calls-database-url --data-file=-
-```
-
-Deploy the backend from this repository root:
-
-```bash
-gcloud run deploy saas-calls-api \
-  --source . \
-  --region us-central1 \
-  --allow-unauthenticated \
-  --set-env-vars CLIENT_URL=https://your-frontend.example.com \
-  --set-secrets DATABASE_URL=saas-calls-database-url:latest
-```
-
-After deployment, verify the API:
-
-```bash
-curl https://YOUR-CLOUD-RUN-URL/health
-curl https://YOUR-CLOUD-RUN-URL/api/calls
-```
-
-If `/api/calls` returns a database error, check the Cloud Run logs. The backend logs PostgreSQL connection failures with the error message, code, and a reminder to verify `DATABASE_URL`, network access, credentials, and `server/schema.sql`.
-
-Create the database schema before sending production traffic. Run `server/schema.sql` and optionally `server/seed.sql` against the same PostgreSQL database referenced by `DATABASE_URL`.
-
-If the frontend is deployed separately, set its API origin:
-
-```env
-VITE_API_URL=https://YOUR-CLOUD-RUN-URL
-```
-
-## Pages
-
-- `/calls` - calls table
-- `/calls/new` - add call form
-- `/calls/:id` - call detail page
-
-## Notes
-
-This MVP does not require authentication. The `/health` endpoint stays available at `http://localhost:3001/health`.
