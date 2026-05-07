@@ -4,10 +4,9 @@ export default function App() {
   return (
     <div>
       <header className="topbar">
-        <Link className="brand" to="/calls">Call Analytics</Link>
+        <Link className="brand" to="/conversaciones">Conversaciones</Link>
         <nav>
-          <Link to="/calls">Calls</Link>
-          <Link to="/calls/new">Add Call</Link>
+          <Link to="/conversaciones">Conversaciones</Link>
         </nav>
       </header>
       <main className="page">

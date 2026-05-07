@@ -116,10 +116,18 @@ h2 {
   margin: 0;
 }
 
+.error-state {
+  border-color: #7f1d1d;
+}
+
 table {
   border-collapse: collapse;
   min-width: 760px;
   width: 100%;
+}
+
+.conversations-table {
+  min-width: 1320px;
 }
 
 th,

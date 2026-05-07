@@ -34,7 +34,7 @@ export async function query(sql, params = []) {
 
 export async function verifyDatabaseConnection() {
   if (!pool) {
-    console.warn("[database] DATABASE_URL is not configured. Local mock data will be used for read-only calls.");
+    console.warn("[database] DATABASE_URL is not configured. /api/conversations requires PostgreSQL.");
     return;
   }
 
