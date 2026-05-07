@@ -1,7 +1,7 @@
 import cors from "cors";
 import dotenv from "dotenv";
 import express from "express";
-import { isDatabaseConfigured, query } from "./db.js";
+import { isDatabaseConfigured, query, verifyDatabaseConnection } from "./db.js";
 import { mockCalls } from "./mockCalls.js";
 
 dotenv.config();
@@ -24,9 +24,14 @@ function formatCall(row) {
 }
 
 function handleDatabaseError(res, error) {
-  console.error(error);
+  console.error("[database] Request failed", {
+    message: error.message,
+    code: error.code,
+    hint: "Verify DATABASE_URL, database availability, and that server/schema.sql has been applied.",
+  });
+
   res.status(503).json({
-    error: "Database is not configured yet. Set DATABASE_URL and run the schema before loading calls.",
+    error: "Database is unavailable. Check server logs for PostgreSQL connection details.",
   });
 }
 
@@ -126,5 +131,6 @@ app.get("/api/calls/:id", async (req, res) => {
 });
 
 app.listen(port, () => {
-  console.log(`API server running on http://localhost:${port}`);
+  console.log(`API server listening on port ${port}`);
+  verifyDatabaseConnection();
 });

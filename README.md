@@ -139,6 +139,52 @@ Optional: if you later deploy a real API separately, set `VITE_API_URL` to that 
 VITE_API_URL=https://api.example.com
 ```
 
+## Express API deployment to Google Cloud Run
+
+Cloud Run runs the Express backend with `npm start`. The server listens on `process.env.PORT`, with a local fallback of `3001`.
+
+Required runtime environment variables:
+
+```env
+DATABASE_URL=postgres://USER:PASSWORD@HOST:5432/DATABASE
+CLIENT_URL=https://your-frontend.example.com
+```
+
+Do not commit real credentials. Store the production `DATABASE_URL` in Secret Manager:
+
+```bash
+gcloud secrets create saas-calls-database-url --replication-policy=automatic
+printf '%s' 'postgres://USER:PASSWORD@HOST:5432/DATABASE' | gcloud secrets versions add saas-calls-database-url --data-file=-
+```
+
+Deploy the backend from this repository root:
+
+```bash
+gcloud run deploy saas-calls-api \
+  --source . \
+  --region us-central1 \
+  --allow-unauthenticated \
+  --set-env-vars CLIENT_URL=https://your-frontend.example.com \
+  --set-secrets DATABASE_URL=saas-calls-database-url:latest
+```
+
+After deployment, verify the API:
+
+```bash
+curl https://YOUR-CLOUD-RUN-URL/health
+curl https://YOUR-CLOUD-RUN-URL/api/calls
+```
+
+If `/api/calls` returns a database error, check the Cloud Run logs. The backend logs PostgreSQL connection failures with the error message, code, and a reminder to verify `DATABASE_URL`, network access, credentials, and `server/schema.sql`.
+
+Create the database schema before sending production traffic. Run `server/schema.sql` and optionally `server/seed.sql` against the same PostgreSQL database referenced by `DATABASE_URL`.
+
+If the frontend is deployed separately, set its API origin:
+
+```env
+VITE_API_URL=https://YOUR-CLOUD-RUN-URL
+```
+
 ## Pages
 
 - `/calls` - calls table
@@ -148,7 +194,3 @@ VITE_API_URL=https://api.example.com
 ## Notes
 
 This MVP does not require authentication. The `/health` endpoint stays available at `http://localhost:3001/health`.
-
-## Comment
-
-Trying to see my vercel branch on vercel    
