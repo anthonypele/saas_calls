@@ -16,6 +16,26 @@ const columns = [
   { key: "actitud_agente", label: "Actitud del Agente" },
 ];
 
+const initialFilters = {
+  fecha: "",
+  agente: "",
+  sentimiento: "",
+  interes_pago: "",
+  falta_recursos: "",
+  actitud_deudor: "",
+  actitud_agente: "",
+};
+
+const filterFields = [
+  { key: "fecha", label: "Fecha", type: "date" },
+  { key: "agente", label: "Agente" },
+  { key: "sentimiento", label: "Sentimiento" },
+  { key: "interes_pago", label: "Interés en Pago" },
+  { key: "falta_recursos", label: "Falta de recursos" },
+  { key: "actitud_deudor", label: "Actitud del Deudor" },
+  { key: "actitud_agente", label: "Actitud del Agente" },
+];
+
 function sentimentClass(value) {
   const normalized = String(value || "").toLowerCase();
 
@@ -36,6 +56,7 @@ export default function ConversacionesPage() {
   const [conversationsError, setConversationsError] = useState("");
   const [sortField, setSortField] = useState("fecha");
   const [sortDirection, setSortDirection] = useState("desc");
+  const [filters, setFilters] = useState(initialFilters);
 
   useEffect(() => {
     setConversationsError("");
@@ -50,18 +71,43 @@ export default function ConversacionesPage() {
       .finally(() => setLoadingConversations(false));
   }, []);
 
-  const visibleConversations = useMemo(() => {
-    return [...conversations].sort((firstConversation, secondConversation) => {
-      const firstValue = getSortValue(firstConversation, sortField);
-      const secondValue = getSortValue(secondConversation, sortField);
-
-      if (sortDirection === "asc") {
-        return firstValue - secondValue;
+  const filterOptions = useMemo(() => {
+    return filterFields.reduce((optionsByField, field) => {
+      if (field.type !== "date") {
+        optionsByField[field.key] = getUniqueOptions(conversations, field.key);
       }
 
-      return secondValue - firstValue;
-    });
-  }, [conversations, sortDirection, sortField]);
+      return optionsByField;
+    }, {});
+  }, [conversations]);
+
+  const visibleConversations = useMemo(() => {
+    return conversations
+      .filter((conversation) => matchesFilters(conversation, filters))
+      .sort((firstConversation, secondConversation) => {
+        const firstValue = getSortValue(firstConversation, sortField);
+        const secondValue = getSortValue(secondConversation, sortField);
+
+        if (sortDirection === "asc") {
+          return firstValue - secondValue;
+        }
+
+        return secondValue - firstValue;
+      });
+  }, [conversations, filters, sortDirection, sortField]);
+
+  const hasActiveFilters = Object.values(filters).some(Boolean);
+
+  function updateFilter(fieldName, value) {
+    setFilters((currentFilters) => ({
+      ...currentFilters,
+      [fieldName]: value,
+    }));
+  }
+
+  function clearFilters() {
+    setFilters(initialFilters);
+  }
 
   function changeSort(nextSortField) {
     if (sortField === nextSortField) {
@@ -104,34 +150,73 @@ export default function ConversacionesPage() {
           <p>La tabla conversations no devolvió registros.</p>
         </div>
       ) : (
-        <div className="table-wrap">
-          <table className="conversations-table">
-            <thead>
-              <tr>
-                {columns.map((column) => (
-                  <th key={column.key}>
-                    {column.sortable ? (
-                      <button className="sort-button" type="button" onClick={() => changeSort(column.key)}>
-                        {column.label}{sortLabel(column.key)}
-                      </button>
-                    ) : (
-                      column.label
-                    )}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {visibleConversations.map((conversation, index) => (
-                <tr key={`${conversation.fecha || "sin-fecha"}-${conversation.telefono || "sin-telefono"}-${index}`}>
-                  {columns.map((column) => (
-                    <td key={column.key}>{renderCell(conversation, column)}</td>
+        <>
+          <div className="filters">
+            {filterFields.map((field) => (
+              <label key={field.key}>
+                {field.label}
+                {field.type === "date" ? (
+                  <input
+                    type="date"
+                    value={filters[field.key]}
+                    onChange={(event) => updateFilter(field.key, event.target.value)}
+                  />
+                ) : (
+                  <select value={filters[field.key]} onChange={(event) => updateFilter(field.key, event.target.value)}>
+                    <option value="">Todos</option>
+                    {(filterOptions[field.key] || []).map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </label>
+            ))}
+
+            <div className="filter-actions">
+              <button className="secondary-button" type="button" onClick={clearFilters} disabled={!hasActiveFilters}>
+                Limpiar filtros
+              </button>
+            </div>
+          </div>
+
+          {visibleConversations.length === 0 ? (
+            <div className="empty-state">
+              <h2>No hay resultados</h2>
+              <p>No hay conversaciones que coincidan con los filtros seleccionados.</p>
+            </div>
+          ) : (
+            <div className="table-wrap">
+              <table className="conversations-table">
+                <thead>
+                  <tr>
+                    {columns.map((column) => (
+                      <th key={column.key}>
+                        {column.sortable ? (
+                          <button className="sort-button" type="button" onClick={() => changeSort(column.key)}>
+                            {column.label}{sortLabel(column.key)}
+                          </button>
+                        ) : (
+                          column.label
+                        )}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {visibleConversations.map((conversation, index) => (
+                    <tr key={`${conversation.fecha || "sin-fecha"}-${conversation.telefono || "sin-telefono"}-${index}`}>
+                      {columns.map((column) => (
+                        <td key={column.key}>{renderCell(conversation, column)}</td>
+                      ))}
+                    </tr>
                   ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                </tbody>
+              </table>
+            </div>
+          )}
+        </>
       )}
     </section>
   );
@@ -143,6 +228,64 @@ function getSortValue(conversation, fieldName) {
   }
 
   return Number(conversation[fieldName] || 0);
+}
+
+function getUniqueOptions(conversations, fieldName) {
+  const values = new Map();
+
+  conversations.forEach((conversation) => {
+    const normalizedValue = normalizeFilterValue(conversation[fieldName]);
+
+    if (!normalizedValue || values.has(normalizedValue)) {
+      return;
+    }
+
+    values.set(normalizedValue, formatValue(conversation[fieldName]));
+  });
+
+  return [...values.entries()]
+    .map(([value, label]) => ({ value, label }))
+    .sort((firstOption, secondOption) => firstOption.label.localeCompare(secondOption.label, "es"));
+}
+
+function matchesFilters(conversation, filters) {
+  return Object.entries(filters).every(([fieldName, filterValue]) => {
+    if (!filterValue) {
+      return true;
+    }
+
+    if (fieldName === "fecha") {
+      return getDateFilterValue(conversation.fecha) === filterValue;
+    }
+
+    return normalizeFilterValue(conversation[fieldName]) === filterValue;
+  });
+}
+
+function getDateFilterValue(value) {
+  if (!value) {
+    return "";
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
+function normalizeFilterValue(value) {
+  if (value === null || value === undefined || value === "") {
+    return "";
+  }
+
+  return String(value);
 }
 
 function renderCell(conversation, column) {

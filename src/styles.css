@@ -253,11 +253,27 @@ article {
   background: #111827;
   border: 1px solid #273449;
   border-radius: 8px;
+  align-items: end;
   display: grid;
   gap: 16px;
   grid-template-columns: repeat(2, minmax(180px, 1fr));
   margin-bottom: 18px;
   padding: 18px;
+}
+
+.filter-actions {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.secondary-button {
+  background: #334155;
+  color: #e5eef8;
+}
+
+.secondary-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 .sort-button {
