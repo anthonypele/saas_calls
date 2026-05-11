@@ -57,8 +57,9 @@ nav {
 
 .page {
   margin: 0 auto;
-  max-width: 1120px;
-  padding: 40px 24px;
+  max-width: 1520px;
+  padding: 40px 32px;
+  width: 100%;
 }
 
 .eyebrow {
@@ -102,6 +103,9 @@ h2 {
   border: 1px solid #273449;
   border-radius: 8px;
   overflow-x: auto;
+  scrollbar-color: #475569 #111827;
+  scrollbar-gutter: stable;
+  width: 100%;
 }
 
 .empty-state {
@@ -127,7 +131,7 @@ table {
 }
 
 .conversations-table {
-  min-width: 1320px;
+  min-width: 1480px;
 }
 
 th,
@@ -205,6 +209,17 @@ textarea {
   width: 100%;
 }
 
+input[type="date"] {
+  color-scheme: dark;
+  min-height: 44px;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  filter: invert(1);
+  opacity: 0.85;
+}
+
 textarea {
   min-height: 100px;
   resize: vertical;
@@ -256,7 +271,7 @@ article {
   align-items: end;
   display: grid;
   gap: 16px;
-  grid-template-columns: repeat(2, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
   margin-bottom: 18px;
   padding: 18px;
 }
@@ -294,6 +309,15 @@ article {
   padding: 16px;
 }
 
+.empty-table-cell {
+  color: #cbd5e1;
+  padding: 28px;
+}
+
+.empty-table-cell p {
+  margin: 0;
+}
+
 @media (max-width: 700px) {
   .topbar,
   .page-header {
@@ -303,6 +327,10 @@ article {
 
   .topbar {
     padding: 16px 20px;
+  }
+
+  .page {
+    padding: 28px 16px;
   }
 
   nav {

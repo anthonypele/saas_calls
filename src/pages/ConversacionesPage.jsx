@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { api } from "../api.js";
 import { formatDate, formatDuration, formatValue } from "../utils.js";
 
@@ -51,62 +52,91 @@ function sentimentClass(value) {
 }
 
 export default function ConversacionesPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [conversations, setConversations] = useState([]);
   const [loadingConversations, setLoadingConversations] = useState(true);
   const [conversationsError, setConversationsError] = useState("");
+  const [filterOptions, setFilterOptions] = useState({});
   const [sortField, setSortField] = useState("fecha");
   const [sortDirection, setSortDirection] = useState("desc");
-  const [filters, setFilters] = useState(initialFilters);
+
+  const filters = useMemo(() => {
+    return filterFields.reduce((currentFilters, field) => {
+      const value = searchParams.get(field.key) || "";
+
+      return {
+        ...currentFilters,
+        [field.key]: field.type === "date" ? normalizeDateFilter(value) : value,
+      };
+    }, initialFilters);
+  }, [searchParams]);
 
   useEffect(() => {
+    api("/api/conversations/filter-options")
+      .then((data) => setFilterOptions(data || {}))
+      .catch(() => {
+        setFilterOptions({});
+        setConversationsError("No se pudieron cargar las opciones de filtros.");
+      });
+  }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams();
+
+    Object.entries(filters).forEach(([fieldName, value]) => {
+      if (value) {
+        params.set(fieldName, value);
+      }
+    });
+
+    const queryString = params.toString();
+    const conversationsPath = `/api/conversations${queryString ? `?${queryString}` : ""}`;
+
     setConversationsError("");
     setLoadingConversations(true);
 
-    api("/api/conversations")
-      .then((data) => setConversations(data.conversations || []))
+    api(conversationsPath)
+      .then((data) => setConversations(Array.isArray(data) ? data : []))
       .catch((error) => {
         setConversations([]);
-        setConversationsError(error.message);
+        setConversationsError(error.message || "No se pudieron cargar las conversaciones.");
       })
       .finally(() => setLoadingConversations(false));
-  }, []);
-
-  const filterOptions = useMemo(() => {
-    return filterFields.reduce((optionsByField, field) => {
-      if (field.type !== "date") {
-        optionsByField[field.key] = getUniqueOptions(conversations, field.key);
-      }
-
-      return optionsByField;
-    }, {});
-  }, [conversations]);
+  }, [filters]);
 
   const visibleConversations = useMemo(() => {
-    return conversations
-      .filter((conversation) => matchesFilters(conversation, filters))
-      .sort((firstConversation, secondConversation) => {
-        const firstValue = getSortValue(firstConversation, sortField);
-        const secondValue = getSortValue(secondConversation, sortField);
+    return [...conversations].sort((firstConversation, secondConversation) => {
+      const firstValue = getSortValue(firstConversation, sortField);
+      const secondValue = getSortValue(secondConversation, sortField);
 
-        if (sortDirection === "asc") {
-          return firstValue - secondValue;
-        }
+      if (sortDirection === "asc") {
+        return firstValue - secondValue;
+      }
 
-        return secondValue - firstValue;
-      });
-  }, [conversations, filters, sortDirection, sortField]);
+      return secondValue - firstValue;
+    });
+  }, [conversations, sortDirection, sortField]);
 
   const hasActiveFilters = Object.values(filters).some(Boolean);
 
   function updateFilter(fieldName, value) {
-    setFilters((currentFilters) => ({
-      ...currentFilters,
-      [fieldName]: value,
-    }));
+    const nextSearchParams = new URLSearchParams(searchParams);
+
+    if (value) {
+      nextSearchParams.set(fieldName, value);
+    } else {
+      nextSearchParams.delete(fieldName);
+    }
+
+    setSearchParams(nextSearchParams);
   }
 
   function clearFilters() {
-    setFilters(initialFilters);
+    setSearchParams({});
+  }
+
+  function openDatePicker(event) {
+    event.currentTarget.showPicker?.();
   }
 
   function changeSort(nextSortField) {
@@ -137,89 +167,93 @@ export default function ConversacionesPage() {
         </div>
       </div>
 
+      <div className="filters">
+        {filterFields.map((field) => (
+          <label key={field.key}>
+            {field.label}
+            {field.type === "date" ? (
+              <input
+                type="date"
+                value={filters[field.key]}
+                onClick={openDatePicker}
+                onChange={(event) => updateFilter(field.key, event.target.value)}
+              />
+            ) : (
+              <select value={filters[field.key]} onChange={(event) => updateFilter(field.key, event.target.value)}>
+                <option value="">Todos</option>
+                {(filterOptions[field.key] || []).map((option) => (
+                  <option key={option} value={option}>
+                    {formatFilterOption(option)}
+                  </option>
+                ))}
+              </select>
+            )}
+          </label>
+        ))}
+
+        <div className="filter-actions">
+          <button className="secondary-button" type="button" onClick={clearFilters} disabled={!hasActiveFilters}>
+            Limpiar filtros
+          </button>
+        </div>
+      </div>
+
       {loadingConversations ? (
-        <p>Cargando conversaciones...</p>
+        <p className="table-message">Cargando conversaciones...</p>
       ) : conversationsError ? (
         <div className="empty-state error-state">
           <h2>No se pudieron cargar las conversaciones</h2>
           <p>{conversationsError}</p>
         </div>
-      ) : conversations.length === 0 ? (
-        <div className="empty-state">
-          <h2>No hay conversaciones</h2>
-          <p>La tabla conversations no devolvió registros.</p>
-        </div>
       ) : (
-        <>
-          <div className="filters">
-            {filterFields.map((field) => (
-              <label key={field.key}>
-                {field.label}
-                {field.type === "date" ? (
-                  <input
-                    type="date"
-                    value={filters[field.key]}
-                    onChange={(event) => updateFilter(field.key, event.target.value)}
-                  />
-                ) : (
-                  <select value={filters[field.key]} onChange={(event) => updateFilter(field.key, event.target.value)}>
-                    <option value="">Todos</option>
-                    {(filterOptions[field.key] || []).map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                )}
-              </label>
-            ))}
-
-            <div className="filter-actions">
-              <button className="secondary-button" type="button" onClick={clearFilters} disabled={!hasActiveFilters}>
-                Limpiar filtros
-              </button>
-            </div>
-          </div>
-
-          {visibleConversations.length === 0 ? (
-            <div className="empty-state">
-              <h2>No hay resultados</h2>
-              <p>No hay conversaciones que coincidan con los filtros seleccionados.</p>
-            </div>
-          ) : (
-            <div className="table-wrap">
-              <table className="conversations-table">
-                <thead>
-                  <tr>
+        <div className="table-wrap">
+          <table className="conversations-table">
+            <thead>
+              <tr>
+                {columns.map((column) => (
+                  <th key={column.key}>
+                    {column.sortable ? (
+                      <button className="sort-button" type="button" onClick={() => changeSort(column.key)}>
+                        {column.label}{sortLabel(column.key)}
+                      </button>
+                    ) : (
+                      column.label
+                    )}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {visibleConversations.length === 0 ? (
+                <tr>
+                  <td className="empty-table-cell" colSpan={columns.length}>
+                    <h2>{hasActiveFilters ? "No hay resultados" : "No hay conversaciones"}</h2>
+                    <p>
+                      {hasActiveFilters
+                        ? "No hay conversaciones que coincidan con los filtros seleccionados."
+                        : "La tabla conversations no devolvió registros."}
+                    </p>
+                  </td>
+                </tr>
+              ) : (
+                visibleConversations.map((conversation, index) => (
+                  <tr key={`${conversation.fecha || "sin-fecha"}-${conversation.telefono || "sin-telefono"}-${index}`}>
                     {columns.map((column) => (
-                      <th key={column.key}>
-                        {column.sortable ? (
-                          <button className="sort-button" type="button" onClick={() => changeSort(column.key)}>
-                            {column.label}{sortLabel(column.key)}
-                          </button>
-                        ) : (
-                          column.label
-                        )}
-                      </th>
+                      <td key={column.key}>{renderCell(conversation, column)}</td>
                     ))}
                   </tr>
-                </thead>
-                <tbody>
-                  {visibleConversations.map((conversation, index) => (
-                    <tr key={`${conversation.fecha || "sin-fecha"}-${conversation.telefono || "sin-telefono"}-${index}`}>
-                      {columns.map((column) => (
-                        <td key={column.key}>{renderCell(conversation, column)}</td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       )}
     </section>
   );
+}
+
+function normalizeDateFilter(value) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : "";
 }
 
 function getSortValue(conversation, fieldName) {
@@ -230,62 +264,16 @@ function getSortValue(conversation, fieldName) {
   return Number(conversation[fieldName] || 0);
 }
 
-function getUniqueOptions(conversations, fieldName) {
-  const values = new Map();
-
-  conversations.forEach((conversation) => {
-    const normalizedValue = normalizeFilterValue(conversation[fieldName]);
-
-    if (!normalizedValue || values.has(normalizedValue)) {
-      return;
-    }
-
-    values.set(normalizedValue, formatValue(conversation[fieldName]));
-  });
-
-  return [...values.entries()]
-    .map(([value, label]) => ({ value, label }))
-    .sort((firstOption, secondOption) => firstOption.label.localeCompare(secondOption.label, "es"));
-}
-
-function matchesFilters(conversation, filters) {
-  return Object.entries(filters).every(([fieldName, filterValue]) => {
-    if (!filterValue) {
-      return true;
-    }
-
-    if (fieldName === "fecha") {
-      return getDateFilterValue(conversation.fecha) === filterValue;
-    }
-
-    return normalizeFilterValue(conversation[fieldName]) === filterValue;
-  });
-}
-
-function getDateFilterValue(value) {
-  if (!value) {
-    return "";
+function formatFilterOption(value) {
+  if (value === "true") {
+    return "Sí";
   }
 
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return "";
+  if (value === "false") {
+    return "No";
   }
 
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-
-  return `${year}-${month}-${day}`;
-}
-
-function normalizeFilterValue(value) {
-  if (value === null || value === undefined || value === "") {
-    return "";
-  }
-
-  return String(value);
+  return formatValue(value);
 }
 
 function renderCell(conversation, column) {
