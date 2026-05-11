@@ -247,96 +247,103 @@ export default function ConversacionesPage() {
   }
 
   return (
-    <section>
-      <div className="page-header">
-        <div>
-          <p className="eyebrow">Conversaciones</p>
-          <h1>Conversaciones</h1>
-          <p className="lede">Registros cargados desde la tabla PostgreSQL/Supabase conversations.</p>
-        </div>
-      </div>
-
-      <div className="filters">
-        <div className="date-filter-line">
-          <div className="quick-ranges" aria-label="Rangos rapidos de fecha">
-            {quickRanges.map((range) => (
-              <button
-                className={`quick-range-button${activeQuickRange === range.label ? " active" : ""}`}
-                key={range.label}
-                type="button"
-                onClick={() => selectQuickRange(range)}
-              >
-                {range.label}
-              </button>
-            ))}
-          </div>
-
-          <div className="date-range-wrap" ref={datePickerRef}>
-            <button
-              className={`date-range-button${dateRange.from && dateRange.to ? " selected" : ""}`}
-              type="button"
-              onClick={() => setDatePickerOpen((isOpen) => !isOpen)}
-            >
-              <CalendarIcon />
-              <span>{formatDateRangeLabel(dateRange)}</span>
-            </button>
-
-            {datePickerOpen ? (
-              <div className="date-popover">
-                <div className="calendar-nav">
-                  <button type="button" aria-label="Mes anterior" onClick={() => setCalendarMonth(addMonths(calendarMonth, -1))}>
-                    &lt;
-                  </button>
-                  <button type="button" aria-label="Mes siguiente" onClick={() => setCalendarMonth(addMonths(calendarMonth, 1))}>
-                    &gt;
-                  </button>
-                </div>
-                <div className="calendar-months">
-                  {[addMonths(calendarMonth, -1), calendarMonth].map((month) => (
-                    <CalendarMonth
-                      key={formatDateValue(month)}
-                      month={month}
-                      pendingRangeStart={pendingRangeStart}
-                      range={dateRange}
-                      onSelectDate={selectCalendarDate}
-                    />
-                  ))}
-                </div>
-              </div>
-            ) : null}
-          </div>
-        </div>
-
-        {filterFields.map((field) => (
-          <label key={field.key}>
-            {field.label}
-            <select value={filters[field.key]} onChange={(event) => updateFilter(field.key, event.target.value)}>
-              <option value="">Todos</option>
-              {(filterOptions[field.key] || []).map((option) => (
-                <option key={option} value={option}>
-                  {formatFilterOption(option)}
-                </option>
+    <section className="conversations-dashboard">
+      <div className="dashboard-controls">
+        <div className="filters">
+          <div className="date-filter-line">
+            <div className="quick-ranges" aria-label="Rangos rapidos de fecha">
+              {quickRanges.map((range) => (
+                <button
+                  className={`quick-range-button${activeQuickRange === range.label ? " active" : ""}`}
+                  key={range.label}
+                  type="button"
+                  onClick={() => selectQuickRange(range)}
+                >
+                  {range.label}
+                </button>
               ))}
-            </select>
-          </label>
-        ))}
+            </div>
 
-        <div className="filter-actions">
-          <button className="secondary-button" type="button" onClick={clearFilters} disabled={!hasActiveFilters}>
-            Limpiar filtros
-          </button>
+            <div className="date-range-wrap" ref={datePickerRef}>
+              <button
+                className={`date-range-button${dateRange.from && dateRange.to ? " selected" : ""}`}
+                type="button"
+                onClick={() => setDatePickerOpen((isOpen) => !isOpen)}
+              >
+                <CalendarIcon />
+                <span>{formatDateRangeLabel(dateRange)}</span>
+              </button>
+
+              {datePickerOpen ? (
+                <div className="date-popover">
+                  <div className="calendar-nav">
+                    <button type="button" aria-label="Mes anterior" onClick={() => setCalendarMonth(addMonths(calendarMonth, -1))}>
+                      &lt;
+                    </button>
+                    <button type="button" aria-label="Mes siguiente" onClick={() => setCalendarMonth(addMonths(calendarMonth, 1))}>
+                      &gt;
+                    </button>
+                  </div>
+                  <div className="calendar-months">
+                    {[addMonths(calendarMonth, -1), calendarMonth].map((month) => (
+                      <CalendarMonth
+                        key={formatDateValue(month)}
+                        month={month}
+                        pendingRangeStart={pendingRangeStart}
+                        range={dateRange}
+                        onSelectDate={selectCalendarDate}
+                      />
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          </div>
+
+          {filterFields.map((field) => (
+            <label key={field.key}>
+              {field.label}
+              <select value={filters[field.key]} onChange={(event) => updateFilter(field.key, event.target.value)}>
+                <option value="">Todos</option>
+                {(filterOptions[field.key] || []).map((option) => (
+                  <option key={option} value={option}>
+                    {formatFilterOption(option)}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ))}
+
+          <div className="filter-actions">
+            <button className="secondary-button" type="button" onClick={clearFilters} disabled={!hasActiveFilters}>
+              Limpiar filtros
+            </button>
+          </div>
+        </div>
+
+        <div className="kpi-grid" aria-label="Resumen de conversaciones">
+          <article className="kpi-card">
+            <div className="kpi-icon" aria-hidden="true">
+              <PhoneIcon />
+            </div>
+            <div>
+              <strong>{visibleConversations.length}</strong>
+              <span>Conversaciones</span>
+            </div>
+          </article>
         </div>
       </div>
 
-      {loadingConversations ? (
-        <p className="table-message">Cargando conversaciones...</p>
-      ) : conversationsError ? (
-        <div className="empty-state error-state">
-          <h2>No se pudieron cargar las conversaciones</h2>
-          <p>{conversationsError}</p>
-        </div>
-      ) : (
-        <div className="table-wrap">
+      <div className="table-panel">
+        {loadingConversations ? (
+          <p className="table-message">Cargando conversaciones...</p>
+        ) : conversationsError ? (
+          <div className="empty-state error-state">
+            <h2>No se pudieron cargar las conversaciones</h2>
+            <p>{conversationsError}</p>
+          </div>
+        ) : (
+          <div className="table-wrap">
           <table className="conversations-table">
             <thead>
               <tr>
@@ -376,8 +383,9 @@ export default function ConversacionesPage() {
               )}
             </tbody>
           </table>
-        </div>
-      )}
+          </div>
+        )}
+      </div>
     </section>
   );
 }
@@ -391,6 +399,20 @@ function CalendarIcon() {
     <svg aria-hidden="true" fill="none" height="18" viewBox="0 0 24 24" width="18">
       <path
         d="M8 2v4m8-4v4M3.5 9.2h17M5.5 4.5h13A2 2 0 0 1 20.5 6.5v12A2 2 0 0 1 18.5 20.5h-13A2 2 0 0 1 3.5 18.5v-12A2 2 0 0 1 5.5 4.5Z"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+      />
+    </svg>
+  );
+}
+
+function PhoneIcon() {
+  return (
+    <svg aria-hidden="true" fill="none" height="22" viewBox="0 0 24 24" width="22">
+      <path
+        d="M6.6 3.6 9 3a1.5 1.5 0 0 1 1.7.9l1 2.5a1.5 1.5 0 0 1-.4 1.7L10 9.3a11.2 11.2 0 0 0 4.7 4.7l1.2-1.3a1.5 1.5 0 0 1 1.7-.4l2.5 1a1.5 1.5 0 0 1 .9 1.7l-.6 2.4a2.2 2.2 0 0 1-2.2 1.7A15.2 15.2 0 0 1 4.9 5.8a2.2 2.2 0 0 1 1.7-2.2Z"
         stroke="currentColor"
         strokeLinecap="round"
         strokeLinejoin="round"
