@@ -65,8 +65,26 @@ const dateFilterPattern = /^\d{4}-\d{2}-\d{2}$/;
 function buildConversationFilters(queryParams) {
   const conditions = [];
   const values = [];
+  const rawFrom = Array.isArray(queryParams.from) ? queryParams.from[0] : queryParams.from;
+  const rawTo = Array.isArray(queryParams.to) ? queryParams.to[0] : queryParams.to;
+  const from = typeof rawFrom === "string" && dateFilterPattern.test(rawFrom.trim()) ? rawFrom.trim() : "";
+  const to = typeof rawTo === "string" && dateFilterPattern.test(rawTo.trim()) ? rawTo.trim() : "";
+
+  if (from) {
+    values.push(from);
+    conditions.push(`fecha >= $${values.length}::date`);
+  }
+
+  if (to) {
+    values.push(to);
+    conditions.push(`fecha < $${values.length}::date + INTERVAL '1 day'`);
+  }
 
   filterColumns.forEach((column) => {
+    if (column === "fecha" && (from || to)) {
+      return;
+    }
+
     const rawValue = queryParams[column];
     const value = Array.isArray(rawValue) ? rawValue[0] : rawValue;
 
