@@ -35,30 +35,128 @@ function handleDatabaseError(res, error) {
   });
 }
 
+const conversationColumns = `
+  fecha,
+  duracion_segundos,
+  telefono,
+  agente,
+  deudor,
+  sentimiento,
+  puntaje,
+  interes_pago,
+  falta_recursos,
+  actitud_deudor,
+  actitud_agente
+`;
+
+const filterColumns = [
+  "fecha",
+  "agente",
+  "sentimiento",
+  "interes_pago",
+  "falta_recursos",
+  "actitud_deudor",
+  "actitud_agente",
+];
+
+const optionColumns = filterColumns.filter((column) => column !== "fecha");
+const dateFilterPattern = /^\d{4}-\d{2}-\d{2}$/;
+
+function buildConversationFilters(queryParams) {
+  const conditions = [];
+  const values = [];
+  const rawFrom = Array.isArray(queryParams.from) ? queryParams.from[0] : queryParams.from;
+  const rawTo = Array.isArray(queryParams.to) ? queryParams.to[0] : queryParams.to;
+  const from = typeof rawFrom === "string" && dateFilterPattern.test(rawFrom.trim()) ? rawFrom.trim() : "";
+  const to = typeof rawTo === "string" && dateFilterPattern.test(rawTo.trim()) ? rawTo.trim() : "";
+
+  if (from) {
+    values.push(from);
+    conditions.push(`fecha >= $${values.length}::date`);
+  }
+
+  if (to) {
+    values.push(to);
+    conditions.push(`fecha < $${values.length}::date + INTERVAL '1 day'`);
+  }
+
+  filterColumns.forEach((column) => {
+    if (column === "fecha" && (from || to)) {
+      return;
+    }
+
+    const rawValue = queryParams[column];
+    const value = Array.isArray(rawValue) ? rawValue[0] : rawValue;
+
+    if (value === undefined || value === null || String(value).trim() === "") {
+      return;
+    }
+
+    const normalizedValue = String(value).trim();
+
+    if (column === "fecha") {
+      if (!dateFilterPattern.test(normalizedValue)) {
+        return;
+      }
+
+      values.push(normalizedValue);
+      conditions.push(`${column} >= $${values.length}::date AND ${column} < $${values.length}::date + INTERVAL '1 day'`);
+      return;
+    }
+
+    values.push(normalizedValue);
+    conditions.push(`${column}::text = $${values.length}`);
+  });
+
+  return {
+    whereClause: conditions.length ? `WHERE ${conditions.join(" AND ")}` : "",
+    values,
+  };
+}
+
 app.get("/health", (req, res) => {
   res.json({ status: "ok" });
 });
 
-app.get("/api/conversations", async (req, res) => {
+app.get("/api/conversations/filter-options", async (req, res) => {
   try {
+    const optionSelects = optionColumns.map(
+      (column) => `
+        COALESCE(
+          jsonb_agg(DISTINCT ${column}::text ORDER BY ${column}::text)
+            FILTER (WHERE ${column} IS NOT NULL AND btrim(${column}::text) <> ''),
+          '[]'::jsonb
+        ) AS ${column}
+      `
+    );
+
     const result = await query(`
       SELECT
-        fecha,
-        duracion_segundos,
-        telefono,
-        agente,
-        deudor,
-        sentimiento,
-        puntaje,
-        interes_pago,
-        falta_recursos,
-        actitud_deudor,
-        actitud_agente
+        ${optionSelects.join(",")}
       FROM conversations
-      ORDER BY fecha DESC
     `);
 
-    res.json({ conversations: result.rows.map(formatConversation) });
+    res.json(result.rows[0] || {});
+  } catch (error) {
+    handleDatabaseError(res, error);
+  }
+});
+
+app.get("/api/conversations", async (req, res) => {
+  try {
+    const { whereClause, values } = buildConversationFilters(req.query);
+    const result = await query(
+      `
+      SELECT
+        ${conversationColumns}
+      FROM conversations
+      ${whereClause}
+      ORDER BY fecha DESC
+    `,
+      values
+    );
+
+    res.json(result.rows.map(formatConversation));
   } catch (error) {
     handleDatabaseError(res, error);
   }
